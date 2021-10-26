@@ -10,9 +10,10 @@ patterns used
     gravityForce method
 
 🔧 step by step 🔧
-    particle class inside sketch.js
-    particles with applyForce, update, render, dampen (scaleVelocity)
-        test generating random particles across the screen with initial y
+.   particle class inside sketch.js
+.   particles with applyForce, update, render, dampen (scaleVelocity)
+        add dampen
+    .   test generating random particles across the screen with initial y
         velocity ➜ apply gravity
     edges() without this.r. if/else
         make sure this works with many particles before adding this.r
@@ -25,12 +26,8 @@ patterns used
             p.applyForce(springForce(p, other, RL=150, K=0.05))
 
 TODO
-    🌟 limit velocity
     add mouseClicked to set particles[0]'s pos
-    compare to x-parasite!
-    figure out why things stick to the floor
-    🌟 add this.r to edges()
-    add 3D?
+    add 3D
  */
 
 let font
@@ -47,13 +44,24 @@ function setup() {
     colorMode(HSB, 360, 100, 100, 100)
 
     const r = 42
+
+    for (let i=0; i<TOTAL; i++) {
+        particles.push(new Particle(0, 0))
+    }
+
     console.log("🐳 particles created :3")
 }
 
 function draw() {
     background(234, 34, 24)
-    stroke(0, 0, 100, 70)
+    stroke(0, 0, 100)
+    fill(0, 0, 100, 20)
 
+    particles.forEach(p => {
+        p.applyForce(gravityForce(0.1))
+        p.update()
+    })
+    particles.forEach(p => p.render())
 }
 
 
@@ -64,5 +72,54 @@ function springForce(a, b, restLength, k) {
 
 
 function gravityForce(strength) {
+    return new p5.Vector(0, strength)
+}
 
+class Particle {
+    constructor(x, y) {
+        this.pos = new p5.Vector(random(width), random(height))
+        this.vel = p5.Vector.random2D()
+        this.acc = new p5.Vector()
+        this.target = new p5.Vector(x, y)
+
+        this.r = 8
+        this.maxspeed = 10
+        this.maxforce = 1
+    }
+
+    applyForce(force) {
+        this.acc.add(force)
+    }
+
+    update() {
+        this.vel.add(this.acc)
+        this.pos.add(this.vel)
+        this.acc.mult(0)
+    }
+
+    render() {
+        circle(this.pos.x, this.pos.y, this.r*2)
+    }
+
+    // like seek, but we slow down as we approach our target :3
+    arrive(target) {
+        // this gives you a vector pointing from us to the target
+        let desired = p5.Vector.sub(target, this.pos)
+
+        // the distance between two points is the magnitude of the
+        // vector from one to the other
+        let distance = desired.mag()
+
+        let speed = this.maxspeed
+        if (distance < 100) {
+            speed = map(distance, 0, 100, 0, this.maxspeed)
+        }
+
+        desired.setMag(speed)
+
+        // steering = desired - current
+        let steer = p5.Vector.sub(desired, this.vel)
+
+        return steer.limit(this.maxforce)
+    }
 }
