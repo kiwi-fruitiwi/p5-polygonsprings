@@ -1,0 +1,159 @@
+/*
+@author Kiwi
+@date 2021-10-25
+
+Trying to recreate Simon's polygon spring demo, but with comments
+
+patterns used
+    loop all, then loop other
+    gravityForce method
+
+🔧 step by step 🔧
+    particle class inside sketch.js
+    particles with applyForce, update, render, dampen (scaleVelocity)
+        test generating random particles across the screen with initial y
+        velocity ➜ apply gravity
+    edges() without this.r. if/else
+        make sure this works with many particles before adding this.r
+    create particles in circle using polar coordinates, r=42, map [0 ➜ 2π]
+    connect all particles with lines using nested loops
+        for (const p of particles) {
+            for (const other of particles) {
+    spring force method
+        if (p !== other)
+            p.applyForce(springForce(p, other, RL=150, K=0.05))
+
+TODO
+    🌟 limit velocity
+    add mouseClicked to set particles[0]'s pos
+    compare to x-parasite!
+    figure out why things stick to the floor
+    🌟 add this.r to edges()
+    add 3D?
+ */
+
+let font
+let particles = []
+const TOTAL = 6
+const K = 0.05
+
+function preload() {
+    font = loadFont('fonts/Meiryo-01.ttf')
+}
+
+function setup() {
+    createCanvas(640, 360)
+    colorMode(HSB, 360, 100, 100, 100)
+
+    const r = 42
+    for (let i=0; i<TOTAL; i++) {
+        const angle = map(i, 0, TOTAL, 0, TAU)
+
+        // x and y are generated around the center of the canvas
+        const x = r * cos(angle) + width/2
+        const y = r * sin(angle) + height/2
+        const p = new Particle(x, y)
+        particles.push(p)
+    }
+
+    console.log("🐳 particles created :3")
+}
+
+function draw() {
+    background(234, 34, 24)
+    stroke(0, 0, 100, 70)
+
+    // set spring forces between all particles
+    // each particle sets spring forces with every other particle
+    for (const p of particles) {
+        p.applyForce(gravityForce(0.1))
+        p.dampen(0.999)
+        for (const other of particles) {
+            if (p !== other)
+                p.applyForce(springForce(p, other, 150, K))
+        }
+        p.update()
+        p.edges()
+    }
+
+
+    // show each particle and draw each spring. drawn before for z-index reasons
+    particles.forEach(p => {
+        particles.forEach(other => {
+            // draw lines between particles to represent springs
+            line(p.pos.x, p.pos.y, other.pos.x, other.pos.y)
+        })
+    })
+
+
+    // show each particle and draw each spring. drawn before for z-index reasons
+    particles.forEach(p => p.render())
+}
+
+
+// calculate the spring force based on Hooke's Law
+function springForce(a, b, restLength, k) {
+    const force = p5.Vector.sub(a.pos, b.pos)
+    const currentLength = force.mag()
+    force.setMag(currentLength - restLength) // restLength-currentLength is Δx!
+    force.mult(-k) // f=-kx, based on Hooke's Law
+    return force
+}
+
+
+function gravityForce(strength) {
+    return new p5.Vector(0, strength)
+}
+
+
+class Particle {
+    constructor(x, y) {
+        this.pos = new p5.Vector(x, y);
+        this.vel = new p5.Vector();
+        this.acc = new p5.Vector();
+
+        this.r = 12
+    }
+
+    applyForce(force) {
+        this.acc.add(force);
+    }
+
+    update() {
+        this.vel.add(this.acc);
+
+        // no more bouncing everywhere :P
+        this.vel.limit(12)
+        this.pos.add(this.vel);
+        this.acc.mult(0);
+    }
+
+    dampen(strength) {
+        this.vel.mult(strength)
+    }
+
+    // TODO add this.r
+    edges() {
+        if (this.pos.x - this.r < 0) { // left edge
+            this.pos.x = this.r
+            this.vel.x *= -1
+        } else if (this.pos.y - this.r < 0) {
+            this.pos.y = this.r
+            this.vel.y *= -1
+        } else if (this.pos.x + this.r > width) {
+            this.pos.x = width - this.r
+            this.vel.x *= -1
+        } else if (this.pos.y + this.r > height) { // bottom edge
+            this.pos.y = height - this.r
+            this.vel.y *= -1.5
+            // make it bounce harder up. no getting stuck on floor
+        }
+    }
+
+    render() {
+        stroke(0, 0, 100, 80)
+        strokeWeight(1)
+        fill(0, 0, 40)
+        circle(this.pos.x, this.pos.y, this.r*2);
+    }
+}
